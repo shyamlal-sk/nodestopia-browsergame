@@ -1,7 +1,7 @@
 import React, { memo } from 'react';
 import { Handle, Position, NodeProps } from 'reactflow';
 import { NodeData } from '../types';
-import { Zap, AlertCircle, CheckCircle2, Trash2, Droplets, Users } from 'lucide-react';
+import { Zap, AlertCircle, CheckCircle2, Trash2, Droplets, Users, Play, Pause } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { useGameStore } from '../store';
@@ -11,10 +11,12 @@ function cn(...inputs: ClassValue[]) {
 }
 
 const CustomNode = ({ id, data, selected }: NodeProps<NodeData>) => {
-  const { label, type, isActive, hasPower, inventory, capacity, color, isResourceNode, inputRequirements, outputRate } = data;
+  const { label, type, isActive, hasPower, inventory, capacity, color, isResourceNode, inputRequirements, outputRate, isManuallyPaused } = data;
   const removeNode = useGameStore((state) => state.removeNode);
+  const toggleNodePause = useGameStore((state) => state.toggleNodePause);
 
   const getStatusIcon = () => {
+    if (isManuallyPaused) return <Pause className="w-4 h-4 text-yellow-500" title="Paused" />;
     if (!hasPower && data.powerRequired > 0) return <Zap className="w-4 h-4 text-yellow-500 animate-pulse" title="No Power" />;
     if (!data.hasLabor && data.laborRequired > 0) return <Users className="w-4 h-4 text-blue-400 animate-pulse" title="No Labor" />;
     if (!data.hasWater && (data.inputRequirements?.['Water'] || 0) > 0) return <Droplets className="w-4 h-4 text-cyan-400 animate-pulse" title="No Water" />;
@@ -42,16 +44,48 @@ const CustomNode = ({ id, data, selected }: NodeProps<NodeData>) => {
         <span className="truncate">{label}</span>
         <div className="flex items-center gap-2">
           {!isResourceNode && type !== 'city-hall' && (
-            <button 
-              onClick={(e) => {
-                e.stopPropagation();
-                removeNode(id);
-              }}
-              className="p-1 hover:bg-black/20 rounded-md transition-colors text-white/50 hover:text-white"
-              title="Remove Node"
-            >
-              <Trash2 className="w-3.5 h-3.5" />
-            </button>
+            <>
+              {type === 'residential' ? (
+                // Housing: Start button only (shows when paused)
+                isManuallyPaused && (
+                  <button 
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      toggleNodePause(id);
+                    }}
+                    className="p-1 bg-green-600/50 hover:bg-green-600 rounded-md transition-colors text-white"
+                    title="Start Node"
+                  >
+                    <Play className="w-3 h-3 fill-current" />
+                  </button>
+                )
+              ) : (
+                // Others: Pause/Start toggle
+                <button 
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    toggleNodePause(id);
+                  }}
+                  className={cn(
+                    "p-1 rounded-md transition-colors text-white",
+                    isManuallyPaused ? "bg-green-600/50 hover:bg-green-600" : "bg-yellow-600/50 hover:bg-yellow-600"
+                  )}
+                  title={isManuallyPaused ? "Start Node" : "Pause Node"}
+                >
+                  {isManuallyPaused ? <Play className="w-3 h-3 fill-current" /> : <Pause className="w-3 h-3" />}
+                </button>
+              )}
+              <button 
+                onClick={(e) => {
+                  e.stopPropagation();
+                  removeNode(id);
+                }}
+                className="p-1 hover:bg-black/20 rounded-md transition-colors text-white/50 hover:text-white"
+                title="Remove Node"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+              </button>
+            </>
           )}
         </div>
       </div>

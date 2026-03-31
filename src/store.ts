@@ -4,6 +4,33 @@ import dagre from 'dagre';
 import { GameState, GameNode, GameEdge, ResourceType } from './types';
 import { INITIAL_MONEY, LOAN_AMOUNT, LOAN_INTEREST_RATE, NODE_TEMPLATES } from './constants';
 
+const applyDagreLayout = (nodes: GameNode[], edges: GameEdge[]) => {
+  const dagreGraph = new dagre.graphlib.Graph();
+  dagreGraph.setDefaultEdgeLabel(() => ({}));
+  dagreGraph.setGraph({ rankdir: 'LR', nodesep: 100, ranksep: 200 });
+
+  nodes.forEach((node) => {
+    dagreGraph.setNode(node.id, { width: 200, height: 150 });
+  });
+
+  edges.forEach((edge) => {
+    dagreGraph.setEdge(edge.source, edge.target);
+  });
+
+  dagre.layout(dagreGraph);
+
+  return nodes.map((node) => {
+    const nodeWithPosition = dagreGraph.node(node.id);
+    return {
+      ...node,
+      position: {
+        x: nodeWithPosition.x - 100,
+        y: nodeWithPosition.y - 75,
+      },
+    };
+  });
+};
+
 const createInitialLayout = () => {
   const nodes: GameNode[] = [
     {
@@ -252,7 +279,10 @@ const createInitialLayout = () => {
     });
   }
 
-  return { nodes, edges };
+  return {
+    nodes: applyDagreLayout(nodes, edges),
+    edges,
+  };
 };
 
 const initialLayout = createInitialLayout();
@@ -364,32 +394,23 @@ export const useGameStore = create<GameState>((set, get) => ({
 
   layoutNodes: () => {
     const { nodes, edges } = get();
-    const dagreGraph = new dagre.graphlib.Graph();
-    dagreGraph.setDefaultEdgeLabel(() => ({}));
-    dagreGraph.setGraph({ rankdir: 'LR', nodesep: 100, ranksep: 200 });
+    set({ nodes: applyDagreLayout(nodes, edges) });
+  },
 
-    nodes.forEach((node) => {
-      dagreGraph.setNode(node.id, { width: 200, height: 150 });
-    });
-
-    edges.forEach((edge) => {
-      dagreGraph.setEdge(edge.source, edge.target);
-    });
-
-    dagre.layout(dagreGraph);
-
-    const newNodes = nodes.map((node) => {
-      const nodeWithPosition = dagreGraph.node(node.id);
-      return {
-        ...node,
-        position: {
-          x: nodeWithPosition.x - 100,
-          y: nodeWithPosition.y - 75,
-        },
-      };
-    });
-
-    set({ nodes: newNodes });
+  toggleNodePause: (id: string) => {
+    set((state) => ({
+      nodes: state.nodes.map((node) =>
+        node.id === id
+          ? {
+              ...node,
+              data: {
+                ...node.data,
+                isManuallyPaused: !node.data.isManuallyPaused,
+              },
+            }
+          : node
+      ),
+    }));
   },
 
   resetGame: () => {
@@ -635,10 +656,11 @@ export const useGameStore = create<GameState>((set, get) => ({
         });
       }
 
-      data.isActive = powerOk && laborOk && waterOk && townHallOk && inputsOk && state.money > 0;
+      data.isActive = powerOk && laborOk && waterOk && townHallOk && inputsOk && state.money > 0 && !data.isManuallyPaused;
 
       if (!data.isActive) {
         const reasons = [];
+        if (data.isManuallyPaused) reasons.push("Paused");
         if (!powerOk) reasons.push("No Power");
         if (!laborOk) reasons.push("No Labor");
         if (!waterOk) reasons.push("No Water");

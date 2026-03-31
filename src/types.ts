@@ -26,6 +26,7 @@ export interface NodeData {
   isResourceNode?: boolean;
   isSubstation?: boolean;
   resourceDraw?: number;
+  isManuallyPaused?: boolean;
 }
 
 export type GameNode = Node<NodeData>;
@@ -63,4 +64,5 @@ export interface GameState {
   resetGame: () => void;
   runTick: () => void;
   layoutNodes: () => void;
+  toggleNodePause: (id: string) => void;
 }
