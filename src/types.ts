@@ -14,9 +14,12 @@ export interface NodeData {
   powerRequired: number;
   hasPower: boolean;
   color: string;
+  category: 'Power' | 'Factories' | 'Logistics' | 'Population' | 'Facilities' | 'Resource';
   outputRate?: Partial<Record<ResourceType, number>>;
   inputRequirements?: Partial<Record<ResourceType, number>>;
   isResourceNode?: boolean;
+  isSubstation?: boolean;
+  resourceDraw?: number;
 }
 
 export type GameNode = Node<NodeData>;
@@ -39,8 +42,11 @@ export interface GameState {
   onNodesChange: (changes: any) => void;
   onEdgesChange: (changes: any) => void;
   onConnect: (connection: any) => void;
+  onReconnect: (oldEdge: any, newConnection: any) => void;
+  deleteEdge: (id: string) => void;
   
   addNode: (type: string, position: { x: number; y: number }) => void;
+  removeNode: (id: string) => void;
   takeLoan: () => void;
   togglePause: () => void;
   resetGame: () => void;

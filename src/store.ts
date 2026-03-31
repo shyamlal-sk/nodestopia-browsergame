@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { applyNodeChanges, applyEdgeChanges, addEdge, Connection, EdgeChange, NodeChange } from 'reactflow';
+import { applyNodeChanges, applyEdgeChanges, addEdge, Connection, EdgeChange, NodeChange, reconnectEdge } from 'reactflow';
 import { GameState, GameNode, GameEdge, ResourceType } from './types';
 import { INITIAL_MONEY, LOAN_AMOUNT, LOAN_INTEREST_RATE, NODE_TEMPLATES } from './constants';
 
@@ -80,6 +80,18 @@ export const useGameStore = create<GameState>((set, get) => ({
     });
   },
 
+  onReconnect: (oldEdge: GameEdge, newConnection: Connection) => {
+    set({
+      edges: reconnectEdge(oldEdge, newConnection, get().edges) as GameEdge[],
+    });
+  },
+
+  deleteEdge: (id: string) => {
+    set((state) => ({
+      edges: state.edges.filter((e) => e.id !== id),
+    }));
+  },
+
   addNode: (type, position) => {
     const template = NODE_TEMPLATES[type];
     if (!template) return;
@@ -98,11 +110,22 @@ export const useGameStore = create<GameState>((set, get) => ({
         efficiency: 1,
         hasPower: false,
       },
+      dragHandle: '.drag-handle',
     };
 
     set((state) => ({
       nodes: [...state.nodes, newNode],
       money: state.money - template.cost,
+    }));
+  },
+
+  removeNode: (id) => {
+    const node = get().nodes.find((n) => n.id === id);
+    if (!node || node.data.isResourceNode || node.type === 'city-hall') return;
+
+    set((state) => ({
+      nodes: state.nodes.filter((n) => n.id !== id),
+      edges: state.edges.filter((e) => e.source !== id && e.target !== id),
     }));
   },
 
@@ -146,11 +169,11 @@ export const useGameStore = create<GameState>((set, get) => ({
     // 1. Calculate Power and Upkeep
     newNodes.forEach((node) => {
       const data = node.data;
+      data.resourceDraw = 0; // Reset draw
       totalUpkeep += data.upkeepCost;
       totalPollution += data.pollution;
 
       if (data.outputRate?.['Power']) {
-        // Check if power plant has inputs if required
         let hasInputs = true;
         if (data.inputRequirements) {
           Object.entries(data.inputRequirements).forEach(([res, amount]) => {
@@ -162,7 +185,6 @@ export const useGameStore = create<GameState>((set, get) => ({
 
         if (hasInputs) {
           totalPowerProduced += data.outputRate['Power']!;
-          // Consume inputs
           if (data.inputRequirements) {
             Object.entries(data.inputRequirements).forEach(([res, amount]) => {
               data.inventory[res as ResourceType] = (data.inventory[res as ResourceType] || 0) - amount;
@@ -173,11 +195,40 @@ export const useGameStore = create<GameState>((set, get) => ({
       totalPowerConsumed += data.powerRequired;
     });
 
-    // 2. Distribute Power
+    // 2. Distribute Power (Connection-based BFS)
+    const poweredNodeIds = new Set<string>();
+    const powerSources = newNodes.filter(n => n.data.outputRate?.['Power']);
+    
+    powerSources.forEach(source => {
+      const queue = [source.id];
+      const visited = new Set([source.id]);
+      poweredNodeIds.add(source.id);
+
+      while (queue.length > 0) {
+        const currentId = queue.shift()!;
+        state.edges.forEach(edge => {
+          let nextId = null;
+          if (edge.source === currentId) nextId = edge.target;
+          else if (edge.target === currentId) nextId = edge.source;
+
+          if (nextId && !visited.has(nextId)) {
+            visited.add(nextId);
+            poweredNodeIds.add(nextId);
+            queue.push(nextId);
+          }
+        });
+      }
+    });
+
     const powerRatio = totalPowerProduced >= totalPowerConsumed ? 1 : totalPowerProduced / totalPowerConsumed;
     newNodes.forEach((node) => {
-      node.data.hasPower = powerRatio >= 1 || Math.random() < powerRatio;
-      node.data.isActive = node.data.hasPower && state.money > 0;
+      const isConnectedToPower = poweredNodeIds.has(node.id);
+      node.data.hasPower = isConnectedToPower && (powerRatio >= 1 || Math.random() < powerRatio);
+      node.data.isActive = (node.data.powerRequired === 0 || node.data.hasPower) && state.money > 0;
+      
+      if (node.data.outputRate?.['Power'] && node.data.isActive) {
+        node.data.resourceDraw = node.data.outputRate['Power'];
+      }
     });
 
     // 3. Process Resources & Logistics
@@ -186,21 +237,18 @@ export const useGameStore = create<GameState>((set, get) => ({
       const targetNode = newNodes.find((n) => n.id === edge.target);
 
       if (sourceNode && targetNode && sourceNode.data.isActive) {
-        // Simple resource transfer logic
-        // If source has output and target has capacity or needs input
         const outputResources = Object.keys(sourceNode.data.outputRate || {}) as ResourceType[];
         
         outputResources.forEach((res) => {
-          if (res === 'Power') return; // Power is global for now
+          if (res === 'Power') return;
 
           const amountToMove = Math.min(
             sourceNode.data.outputRate![res] || 0,
             sourceNode.data.inventory[res] || 0,
-            10 // Max transfer rate per tick
+            10
           );
 
           if (amountToMove > 0) {
-            // Check if target can accept
             const targetNeeds = targetNode.data.inputRequirements?.[res] || 0;
             const targetCapacity = targetNode.data.capacity?.[res] || 100;
             const targetCurrent = targetNode.data.inventory[res] || 0;
@@ -208,11 +256,11 @@ export const useGameStore = create<GameState>((set, get) => ({
             if (targetCurrent < targetCapacity || targetNeeds > 0) {
               sourceNode.data.inventory[res] = (sourceNode.data.inventory[res] || 0) - amountToMove;
               targetNode.data.inventory[res] = (targetNode.data.inventory[res] || 0) + amountToMove;
+              sourceNode.data.resourceDraw = (sourceNode.data.resourceDraw || 0) + amountToMove;
             }
           }
         });
         
-        // Also move from inventory to inventory (Logistics)
         Object.entries(sourceNode.data.inventory).forEach(([res, amount]) => {
           const resource = res as ResourceType;
           if (amount > 0) {
@@ -224,6 +272,7 @@ export const useGameStore = create<GameState>((set, get) => ({
               const move = Math.min(amount, spaceAvailable, 5);
               sourceNode.data.inventory[resource]! -= move;
               targetNode.data.inventory[resource] = (targetNode.data.inventory[resource] || 0) + move;
+              sourceNode.data.resourceDraw = (sourceNode.data.resourceDraw || 0) + move;
             }
           }
         });

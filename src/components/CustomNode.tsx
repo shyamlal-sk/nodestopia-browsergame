@@ -1,16 +1,18 @@
 import React, { memo } from 'react';
 import { Handle, Position, NodeProps } from 'reactflow';
 import { NodeData } from '../types';
-import { Zap, AlertCircle, CheckCircle2, MoreHorizontal } from 'lucide-react';
+import { Zap, AlertCircle, CheckCircle2, MoreHorizontal, Trash2 } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
+import { useGameStore } from '../store';
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-const CustomNode = ({ data, selected }: NodeProps<NodeData>) => {
+const CustomNode = ({ id, data, selected }: NodeProps<NodeData>) => {
   const { label, type, isActive, hasPower, inventory, capacity, color, isResourceNode, inputRequirements, outputRate } = data;
+  const removeNode = useGameStore((state) => state.removeNode);
 
   const getStatusIcon = () => {
     if (!hasPower && data.powerRequired > 0) return <Zap className="w-4 h-4 text-yellow-500 animate-pulse" />;
@@ -36,8 +38,22 @@ const CustomNode = ({ data, selected }: NodeProps<NodeData>) => {
     )}>
       <div className={cn("px-4 py-2 rounded-t-2xl flex items-center justify-between text-white font-bold text-sm", color)}>
         <span className="truncate">{label}</span>
-        <div className="drag-handle cursor-grab active:cursor-grabbing">
-          <MoreHorizontal className="w-4 h-4 opacity-50" />
+        <div className="flex items-center gap-2">
+          {!isResourceNode && type !== 'city-hall' && (
+            <button 
+              onClick={(e) => {
+                e.stopPropagation();
+                removeNode(id);
+              }}
+              className="p-1 hover:bg-black/20 rounded-md transition-colors text-white/50 hover:text-white"
+              title="Remove Node"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+            </button>
+          )}
+          <div className="drag-handle cursor-grab active:cursor-grabbing">
+            <MoreHorizontal className="w-4 h-4 opacity-50" />
+          </div>
         </div>
       </div>
 
@@ -73,8 +89,17 @@ const CustomNode = ({ data, selected }: NodeProps<NodeData>) => {
 
         {data.powerRequired > 0 && (
           <div className="flex items-center justify-between text-xs">
-            <span className="text-slate-500">Power</span>
+            <span className="text-slate-500">Power Required</span>
             <span className="font-mono font-bold text-slate-300">{data.powerRequired} MW</span>
+          </div>
+        )}
+
+        {(data.resourceDraw || 0) > 0 && (
+          <div className="flex items-center justify-between text-xs pt-1 border-t border-slate-800/50">
+            <span className="text-slate-500">Resource Flow</span>
+            <span className="font-mono font-bold text-blue-400">
+              {Math.round(data.resourceDraw || 0)} units/tick
+            </span>
           </div>
         )}
       </div>
@@ -82,13 +107,13 @@ const CustomNode = ({ data, selected }: NodeProps<NodeData>) => {
       <Handle 
         type="target" 
         position={Position.Left} 
-        className="w-4 h-4 bg-blue-500 border-2 border-slate-900 hover:scale-125 transition-transform"
+        className="w-6 h-6 bg-blue-500 border-2 border-slate-900 hover:scale-125 transition-transform"
         title={getTargetTooltip()}
       />
       <Handle 
         type="source" 
         position={Position.Right} 
-        className="w-4 h-4 bg-blue-600 border-2 border-slate-900 hover:scale-125 transition-transform"
+        className="w-6 h-6 bg-blue-600 border-2 border-slate-900 hover:scale-125 transition-transform"
         title={getSourceTooltip()}
       />
     </div>

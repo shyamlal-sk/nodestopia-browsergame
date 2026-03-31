@@ -33,6 +33,7 @@ const nodeTypes = {
   'water-source': CustomNode,
   'coal-deposit': CustomNode,
   'oil-reserve': CustomNode,
+  'substation': CustomNode,
 };
 
 const GameCanvas = () => {
@@ -42,6 +43,8 @@ const GameCanvas = () => {
     onNodesChange, 
     onEdgesChange, 
     onConnect, 
+    onReconnect: onReconnectStore,
+    deleteEdge,
     addNode,
     runTick,
     isPaused
@@ -54,7 +57,7 @@ const GameCanvas = () => {
   useEffect(() => {
     const interval = setInterval(() => {
       runTick();
-    }, 1000);
+    }, 3000); // 3 seconds per tick
     return () => clearInterval(interval);
   }, [runTick]);
 
@@ -84,6 +87,55 @@ const GameCanvas = () => {
     [project, addNode]
   );
 
+  const edgeUpdateSuccessful = useRef(true);
+
+  const onReconnectStart = useCallback(() => {
+    edgeUpdateSuccessful.current = false;
+  }, []);
+
+  const onReconnect = useCallback((oldEdge: any, newConnection: any) => {
+    edgeUpdateSuccessful.current = true;
+    onReconnectStore(oldEdge, newConnection);
+  }, [onReconnectStore]);
+
+  const onReconnectEnd = useCallback((_: any, edge: any) => {
+    if (!edgeUpdateSuccessful.current) {
+      deleteEdge(edge.id);
+    }
+    edgeUpdateSuccessful.current = true;
+  }, [deleteEdge]);
+
+  const isValidConnection = useCallback((connection: any) => {
+    const sourceNode = nodes.find((n) => n.id === connection.source);
+    const targetNode = nodes.find((n) => n.id === connection.target);
+
+    if (!sourceNode || !targetNode) return false;
+
+    // Power and Grid connections
+    const isResourceSource = !!sourceNode.data.isResourceNode;
+    const isResourceTarget = !!targetNode.data.isResourceNode;
+    
+    // Allow any connection between non-resource nodes (Power Grid)
+    if (!isResourceSource && !isResourceTarget) return true;
+
+    // Resource connections (from resource nodes to factories/warehouses)
+    const sourceOutputs = Object.keys(sourceNode.data.outputRate || {}).filter(r => r !== 'Power');
+    const targetInputs = Object.keys(targetNode.data.inputRequirements || {});
+    const targetCapacities = Object.keys(targetNode.data.capacity || {});
+
+    // Logistics nodes (warehouses) can accept anything from resource nodes
+    if (targetNode.data.category === 'Logistics' && isResourceSource) {
+      return true;
+    }
+
+    // A connection is valid if the source produces something the target needs or can store
+    const canAcceptSomething = sourceOutputs.some(res => 
+      targetInputs.includes(res) || targetCapacities.includes(res)
+    );
+
+    return canAcceptSomething;
+  }, [nodes]);
+
   return (
     <div className="flex-1 h-full relative" ref={reactFlowWrapper}>
       <ReactFlow
@@ -92,6 +144,10 @@ const GameCanvas = () => {
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
+        onReconnect={onReconnect}
+        onReconnectStart={onReconnectStart}
+        onReconnectEnd={onReconnectEnd}
+        isValidConnection={isValidConnection}
         onDrop={onDrop}
         onDragOver={onDragOver}
         nodeTypes={nodeTypes}
@@ -101,6 +157,7 @@ const GameCanvas = () => {
         defaultEdgeOptions={{
           style: { strokeWidth: 3, stroke: '#3b82f6' },
           animated: true,
+          reconnectable: true,
         }}
       >
         <Background color="#1e293b" gap={40} size={1} />

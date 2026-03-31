@@ -1,6 +1,6 @@
 import React from 'react';
 import { useGameStore } from '../store';
-import { Zap, Heart, Play, Pause, RotateCcw, DollarSign } from 'lucide-react';
+import { Zap, Heart, Play, Pause, RotateCcw, DollarSign, Clock } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
@@ -84,6 +84,19 @@ const HUD = () => {
           </div>
         </div>
 
+        {/* Time Display */}
+        <div className="bg-slate-900/90 backdrop-blur-md border border-slate-800 rounded-3xl p-4 shadow-2xl flex items-center gap-4 min-w-[140px]">
+          <div className="w-12 h-12 bg-blue-900/30 rounded-2xl flex items-center justify-center text-blue-400">
+            <Clock className="w-6 h-6" />
+          </div>
+          <div className="space-y-1">
+            <span className="text-[10px] uppercase tracking-widest text-slate-500 font-black">Time</span>
+            <div className="text-xl font-black text-blue-400">
+              {String(Math.floor(tick % 24)).padStart(2, '0')}:00
+            </div>
+          </div>
+        </div>
+
         {/* Loan Button */}
         <div className="bg-slate-900/90 backdrop-blur-md border border-slate-800 rounded-3xl p-2 shadow-2xl flex items-center gap-2">
           <button
@@ -118,13 +131,6 @@ const HUD = () => {
           >
             <RotateCcw className="w-6 h-6" />
           </button>
-        </div>
-      </div>
-      
-      {/* Tick Counter */}
-      <div className="mt-4 flex justify-center">
-        <div className="bg-slate-900/80 backdrop-blur-sm text-white px-4 py-1 rounded-full text-[10px] font-black uppercase tracking-[0.2em] border border-slate-700">
-          Simulation Tick: {tick}
         </div>
       </div>
     </div>

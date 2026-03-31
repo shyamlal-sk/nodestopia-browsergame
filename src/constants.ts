@@ -16,6 +16,7 @@ export interface NodeTemplate {
   inputRequirements?: Partial<Record<ResourceType, number>>;
   color: string;
   category: 'Power' | 'Factories' | 'Logistics' | 'Population' | 'Facilities' | 'Resource';
+  resourceDraw?: number;
 }
 
 export const NODE_TEMPLATES: Record<string, NodeTemplate> = {
@@ -31,6 +32,7 @@ export const NODE_TEMPLATES: Record<string, NodeTemplate> = {
     outputRate: { 'Power': 100 },
     color: 'bg-yellow-500',
     category: 'Power',
+    resourceDraw: 0,
   },
   'oil-power': {
     type: 'oil-power',
@@ -43,6 +45,7 @@ export const NODE_TEMPLATES: Record<string, NodeTemplate> = {
     outputRate: { 'Power': 250 },
     color: 'bg-yellow-600',
     category: 'Power',
+    resourceDraw: 0,
   },
   'solar-farm': {
     type: 'solar-farm',
@@ -54,6 +57,18 @@ export const NODE_TEMPLATES: Record<string, NodeTemplate> = {
     outputRate: { 'Power': 50 },
     color: 'bg-yellow-400',
     category: 'Power',
+    resourceDraw: 0,
+  },
+  'substation': {
+    type: 'substation',
+    label: 'Substation',
+    cost: 100000,
+    upkeepCost: 500,
+    pollution: 0,
+    powerRequired: 5,
+    color: 'bg-yellow-700',
+    category: 'Power',
+    resourceDraw: 0,
   },
   
   // Factories
