@@ -12,6 +12,7 @@ import 'reactflow/dist/style.css';
 
 import { useGameStore } from './store';
 import CustomNode from './components/CustomNode';
+import CustomEdge from './components/CustomEdge';
 import Sidebar from './components/Sidebar';
 import HUD from './components/HUD';
 import StartModal from './components/StartModal';
@@ -35,6 +36,10 @@ const nodeTypes = {
   'coal-deposit': CustomNode,
   'oil-reserve': CustomNode,
   'substation': CustomNode,
+};
+
+const edgeTypes = {
+  'custom': CustomEdge,
 };
 
 const GameCanvas = () => {
@@ -80,6 +85,7 @@ const GameCanvas = () => {
     const edge = {
       ...connection,
       id: `e-${connection.source}-${connection.target}-${Date.now()}`,
+      type: 'custom',
       style: { stroke, strokeWidth },
       animated: true,
     };
@@ -203,10 +209,12 @@ const GameCanvas = () => {
         onDrop={onDrop}
         onDragOver={onDragOver}
         nodeTypes={nodeTypes}
+        edgeTypes={edgeTypes}
         fitView
         snapToGrid
         snapGrid={[20, 20]}
         defaultEdgeOptions={{
+          type: 'custom',
           style: { strokeWidth: 2, stroke: '#475569' },
           animated: true,
           reconnectable: true,

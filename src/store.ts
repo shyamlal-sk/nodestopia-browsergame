@@ -238,7 +238,6 @@ const createInitialLayout = () => {
   const edges: GameEdge[] = [
     { id: 'e-coal-to-power', source: 'init-coal-deposit', target: 'init-coal-power', animated: true, style: { stroke: '#71717a', strokeWidth: 3 } },
     { id: 'e-coal-to-power-2', source: 'init-coal-deposit-2', target: 'init-coal-power-2', animated: true, style: { stroke: '#71717a', strokeWidth: 3 } },
-    { id: 'e-power-to-hall', source: 'init-coal-power', target: 'city-hall', animated: true, style: { stroke: '#eab308', strokeWidth: 3 } },
     { id: 'e-power-to-processing', source: 'init-coal-power', target: 'init-processing', animated: true, style: { stroke: '#eab308', strokeWidth: 3 } },
     { id: 'e-power-to-warehouse', source: 'init-coal-power', target: 'init-warehouse', animated: true, style: { stroke: '#eab308', strokeWidth: 3 } },
     { id: 'e-power-to-shop', source: 'init-coal-power-2', target: 'init-shop', animated: true, style: { stroke: '#eab308', strokeWidth: 3 } },
@@ -251,6 +250,7 @@ const createInitialLayout = () => {
     { id: 'e-warehouse-to-shop', source: 'init-warehouse', target: 'init-shop', animated: true, style: { stroke: '#3b82f6', strokeWidth: 3 } },
     { id: 'e-shop-to-residential', source: 'init-shop', target: 'init-residential', animated: true, style: { stroke: '#f97316', strokeWidth: 3 } },
     { id: 'e-water-to-residential', source: 'init-water', target: 'init-residential', animated: true, style: { stroke: '#06b6d4', strokeWidth: 3 } },
+    { id: 'e-hall-to-residential', source: 'city-hall', target: 'init-residential', animated: true, style: { stroke: '#64748b', strokeWidth: 3 } },
   ];
 
   // Randomly scatter resource nodes further out
@@ -467,12 +467,16 @@ export const useGameStore = create<GameState>((set, get) => ({
     });
 
     // 2. Physical Resource Logistics (Edge-based)
-    // Move resources regardless of isActive status to prevent deadlocks
+    // Move resources regardless of isActive status to prevent deadlocks,
+    // UNLESS the node is manually paused by the user.
     state.edges.forEach((edge) => {
       const sourceNode = newNodes.find((n) => n.id === edge.source);
       const targetNode = newNodes.find((n) => n.id === edge.target);
 
       if (sourceNode && targetNode) {
+        // If either node is manually paused, stop resource transfer
+        if (sourceNode.data.isManuallyPaused || targetNode.data.isManuallyPaused) return;
+
         Object.entries(sourceNode.data.inventory).forEach(([res, amount]) => {
           const resource = res as ResourceType;
           if (resource === 'Power' || resource === 'Water' || resource === 'Labor') return;
