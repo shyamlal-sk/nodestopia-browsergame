@@ -1,0 +1,5 @@
+{
+  "name": "Nodestopia",
+  "description": "A clean, modern, node-based city simulation browser game. Manage your city's economy, resources, and citizen comfort by wiring together various nodes.",
+  "requestFramePermissions": []
+}
