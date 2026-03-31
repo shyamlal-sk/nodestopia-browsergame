@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useRef } from 'react';
 import ReactFlow, { 
   Background, 
+  BackgroundVariant,
   Controls, 
   Panel, 
   ReactFlowProvider,
@@ -24,7 +25,7 @@ const nodeTypes = {
   'processing-plant': CustomNode,
   'waste-treatment': CustomNode,
   'warehouse': CustomNode,
-  'store': CustomNode,
+  'shop': CustomNode,
   'residential': CustomNode,
   'airport': CustomNode,
   'hospital': CustomNode,
@@ -42,13 +43,49 @@ const GameCanvas = () => {
     edges, 
     onNodesChange, 
     onEdgesChange, 
-    onConnect, 
+    onConnect: onConnectStore, 
     onReconnect: onReconnectStore,
     deleteEdge,
     addNode,
     runTick,
     isPaused
   } = useGameStore();
+
+  const onConnect = useCallback((connection: any) => {
+    const sourceNode = nodes.find((n) => n.id === connection.source);
+    const targetNode = nodes.find((n) => n.id === connection.target);
+
+    if (!sourceNode || !targetNode) return;
+
+    let stroke = '#3b82f6'; // Default blue
+    let strokeWidth = 3;
+
+    // Power connections
+    if (sourceNode.data.category === 'Power' || sourceNode.type === 'substation') {
+      stroke = '#eab308'; // Yellow
+    } 
+    // Water connections
+    else if (sourceNode.type === 'water-source') {
+      stroke = '#06b6d4'; // Cyan
+    }
+    // Resource connections
+    else if (sourceNode.data.isResourceNode) {
+      stroke = '#71717a'; // Zinc/Gray
+    }
+    // Food/Goods connections
+    else if (sourceNode.type === 'farm' || sourceNode.type === 'processing-plant' || sourceNode.type === 'shop') {
+      stroke = '#f97316'; // Orange
+    }
+
+    const edge = {
+      ...connection,
+      id: `e-${connection.source}-${connection.target}-${Date.now()}`,
+      style: { stroke, strokeWidth },
+      animated: true,
+    };
+
+    onConnectStore(edge);
+  }, [nodes, onConnectStore]);
   
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
   const { project } = useReactFlow();
@@ -57,7 +94,7 @@ const GameCanvas = () => {
   useEffect(() => {
     const interval = setInterval(() => {
       runTick();
-    }, 3000); // 3 seconds per tick
+    }, 1000); // 1 second interval
     return () => clearInterval(interval);
   }, [runTick]);
 
@@ -111,11 +148,26 @@ const GameCanvas = () => {
 
     if (!sourceNode || !targetNode) return false;
 
+    // Hierarchy Logic: Warehouse -> Shop -> Residential
+    if (sourceNode.type === 'warehouse' && targetNode.type === 'residential') {
+      return false; // Cannot connect warehouse directly to residential
+    }
+    if (sourceNode.type === 'shop' && targetNode.type === 'warehouse') {
+      return false; // Shops pull from warehouses, not the other way around
+    }
+
+    // Residential should only get Food/Goods from Shops
+    const isFoodOrGoodsProducer = sourceNode.type === 'farm' || sourceNode.type === 'processing-plant';
+    if (isFoodOrGoodsProducer && targetNode.type === 'residential') {
+      return false; // Factories/Farms must go through Warehouse or Shop
+    }
+
     // Power and Grid connections
     const isResourceSource = !!sourceNode.data.isResourceNode;
     const isResourceTarget = !!targetNode.data.isResourceNode;
     
     // Allow any connection between non-resource nodes (Power Grid)
+    // EXCEPT the warehouse -> residential restriction above
     if (!isResourceSource && !isResourceTarget) return true;
 
     // Resource connections (from resource nodes to factories/warehouses)
@@ -155,12 +207,18 @@ const GameCanvas = () => {
         snapToGrid
         snapGrid={[20, 20]}
         defaultEdgeOptions={{
-          style: { strokeWidth: 3, stroke: '#3b82f6' },
+          style: { strokeWidth: 2, stroke: '#475569' },
           animated: true,
           reconnectable: true,
         }}
       >
-        <Background color="#1e293b" gap={40} size={1} />
+        <Background 
+          color="#334155" 
+          gap={40} 
+          size={1} 
+          variant={BackgroundVariant.Lines} 
+          style={{ opacity: 0.2 }}
+        />
         <Controls className="bg-slate-900 border-slate-800 fill-white" />
       </ReactFlow>
       

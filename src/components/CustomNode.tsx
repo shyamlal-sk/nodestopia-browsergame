@@ -1,7 +1,7 @@
 import React, { memo } from 'react';
 import { Handle, Position, NodeProps } from 'reactflow';
 import { NodeData } from '../types';
-import { Zap, AlertCircle, CheckCircle2, MoreHorizontal, Trash2 } from 'lucide-react';
+import { Zap, AlertCircle, CheckCircle2, Trash2, Droplets, Users } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { useGameStore } from '../store';
@@ -15,9 +15,11 @@ const CustomNode = ({ id, data, selected }: NodeProps<NodeData>) => {
   const removeNode = useGameStore((state) => state.removeNode);
 
   const getStatusIcon = () => {
-    if (!hasPower && data.powerRequired > 0) return <Zap className="w-4 h-4 text-yellow-500 animate-pulse" />;
-    if (!isActive) return <AlertCircle className="w-4 h-4 text-red-500" />;
-    return <CheckCircle2 className="w-4 h-4 text-green-500" />;
+    if (!hasPower && data.powerRequired > 0) return <Zap className="w-4 h-4 text-yellow-500 animate-pulse" title="No Power" />;
+    if (!data.hasLabor && data.laborRequired > 0) return <Users className="w-4 h-4 text-blue-400 animate-pulse" title="No Labor" />;
+    if (!data.hasWater && (data.inputRequirements?.['Water'] || 0) > 0) return <Droplets className="w-4 h-4 text-cyan-400 animate-pulse" title="No Water" />;
+    if (!isActive) return <AlertCircle className="w-4 h-4 text-red-500" title="Inactive" />;
+    return <CheckCircle2 className="w-4 h-4 text-green-500" title="Active" />;
   };
 
   const getTargetTooltip = () => {
@@ -51,9 +53,6 @@ const CustomNode = ({ id, data, selected }: NodeProps<NodeData>) => {
               <Trash2 className="w-3.5 h-3.5" />
             </button>
           )}
-          <div className="drag-handle cursor-grab active:cursor-grabbing">
-            <MoreHorizontal className="w-4 h-4 opacity-50" />
-          </div>
         </div>
       </div>
 
@@ -67,20 +66,64 @@ const CustomNode = ({ id, data, selected }: NodeProps<NodeData>) => {
             )}>
               {isActive ? "Active" : "Inactive"}
             </span>
+            {isActive && <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse shadow-[0_0_8px_rgba(34,197,94,0.6)]" />}
           </div>
         </div>
 
+        {data.statusMessage && (
+          <div className="text-[10px] text-red-400 font-bold bg-red-900/20 p-2 rounded-lg border border-red-900/30">
+            {data.statusMessage}
+          </div>
+        )}
+
+        {type === 'residential' && (
+          <div className="flex items-center justify-between text-[10px] pt-1 border-t border-slate-800/50">
+            <span className="text-slate-500 uppercase tracking-tighter">City Hall Link</span>
+            <span className={cn(
+              "font-bold",
+              isActive ? "text-blue-400" : "text-red-400"
+            )}>
+              {isActive ? "Connected" : "Disconnected"}
+            </span>
+          </div>
+        )}
+
+        {Object.entries(data.inputRequirements || {}).length > 0 && (
+          <div className="space-y-1">
+            <span className="text-[10px] uppercase tracking-wider text-slate-600 font-bold">Requirements</span>
+            <div className="grid grid-cols-1 gap-1">
+              {Object.entries(data.inputRequirements || {}).map(([res, amount]) => {
+                if (res === 'Power' || res === 'Water' || res === 'Labor') return null;
+                return (
+                  <div key={res} className="flex items-center justify-between text-[11px] bg-slate-800/30 px-2 py-1 rounded-lg">
+                    <span className="text-slate-500">{res}</span>
+                    <span className="font-mono text-slate-400">Req: {amount}/s</span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         {Object.entries(inventory).length > 0 && (
           <div className="space-y-1">
-            <span className="text-[10px] uppercase tracking-wider text-slate-600 font-bold">Inventory</span>
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] uppercase tracking-wider text-slate-600 font-bold">Inventory</span>
+              <span className="text-[9px] text-slate-500 italic">Rate: {data.transferRate || 10}/s</span>
+            </div>
             <div className="grid grid-cols-1 gap-1">
               {Object.entries(inventory).map(([res, amount]) => (
                 <div key={res} className="flex items-center justify-between text-[11px] bg-slate-800/50 px-2 py-1 rounded-lg">
                   <span className="text-slate-400">{res}</span>
-                  <span className="font-mono font-bold text-slate-200">
-                    {Math.floor(amount || 0)}
-                    <span className="text-slate-600 ml-1">/ {capacity[res as any] || 100}</span>
-                  </span>
+                  <div className="flex flex-col items-end">
+                    <span className="font-mono font-bold text-slate-200">
+                      {Math.floor(amount || 0)}
+                      <span className="text-slate-600 ml-1">/ {capacity[res as any] || 100}</span>
+                    </span>
+                    {data.inputRequirements?.[res as any] && (
+                      <span className="text-[8px] text-red-400/70 font-bold">Req: {data.inputRequirements[res as any]}/sec</span>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>
@@ -94,11 +137,18 @@ const CustomNode = ({ id, data, selected }: NodeProps<NodeData>) => {
           </div>
         )}
 
+        {(data.inputRequirements?.['Water'] || 0) > 0 && (
+          <div className="flex items-center justify-between text-xs">
+            <span className="text-slate-500">Water Required</span>
+            <span className="font-mono font-bold text-cyan-400">{data.inputRequirements?.['Water']} units</span>
+          </div>
+        )}
+
         {(data.resourceDraw || 0) > 0 && (
           <div className="flex items-center justify-between text-xs pt-1 border-t border-slate-800/50">
             <span className="text-slate-500">Resource Flow</span>
             <span className="font-mono font-bold text-blue-400">
-              {Math.round(data.resourceDraw || 0)} units/tick
+              {Math.round(data.resourceDraw || 0)} units/sec
             </span>
           </div>
         )}

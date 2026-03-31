@@ -1,6 +1,6 @@
 import { Node, Edge } from 'reactflow';
 
-export type ResourceType = 'Wood' | 'Minerals' | 'Water' | 'Coal' | 'Oil' | 'Food' | 'Processed Goods' | 'Power' | 'Waste';
+export type ResourceType = 'Wood' | 'Minerals' | 'Water' | 'Coal' | 'Oil' | 'Food' | 'Processed Goods' | 'Power' | 'Waste' | 'Labor';
 
 export interface NodeData {
   label: string;
@@ -12,7 +12,13 @@ export interface NodeData {
   capacity: Partial<Record<ResourceType, number>>;
   efficiency: number;
   powerRequired: number;
+  laborRequired: number;
+  laborProduced: number;
   hasPower: boolean;
+  hasLabor: boolean;
+  hasWater: boolean;
+  statusMessage?: string;
+  transferRate?: number;
   color: string;
   category: 'Power' | 'Factories' | 'Logistics' | 'Population' | 'Facilities' | 'Resource';
   outputRate?: Partial<Record<ResourceType, number>>;
@@ -30,6 +36,11 @@ export interface GameState {
   comfort: number;
   powerProduced: number;
   powerConsumed: number;
+  waterProduced: number;
+  waterConsumed: number;
+  laborProduced: number;
+  laborRequired: number;
+  netIncome: number;
   loansTaken: number;
   isPaused: boolean;
   tick: number;
@@ -51,4 +62,5 @@ export interface GameState {
   togglePause: () => void;
   resetGame: () => void;
   runTick: () => void;
+  layoutNodes: () => void;
 }
