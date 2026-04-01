@@ -1,20 +1,63 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
+🏙️ Nodestopia
 
-# Run and deploy your AI Studio app
+Nodestopia is a clean, modern, node-based city simulation game played directly in your browser. Unlike traditional grid-based builders, Nodestopia uses a flow-based architecture where you wire up resources, factories, and residential zones to create a living, breathing economy.
 
-This contains everything you need to run your app locally.
+🕹️ About the Project
 
-View your app in AI Studio: https://ai.studio/apps/06a9595d-0bb7-47ed-ad57-0ad4c722e157
+Hi, I'm Shyam!
 
-## Run Locally
+I’m a gamer at heart. While I spend a lot of my time in Action and RPG worlds, I’ve always had a deep love for Tycoon and Simulation games. There's something incredibly satisfying about balancing budgets, optimizing logistics, and watching a complex system thrive.
 
-**Prerequisites:**  Node.js
+Nodestopia is my hobby side project. I wanted to experiment with a different way of visualizing city management—using nodes and edges instead of tiles.
+
+🤖 Built with AI
+
+This project was born out of a collaboration with Google AI Studio. I provided the core logic, game design philosophy, and mechanical instructions, and worked with the AI to architect the build documentation and code structure you see here.
+
+🚀 Core Features
+
+Node-Based Logistics: Use a "ReactFlow" interface to connect Resource Deposits → Factories → Warehouses → Stores → Homes.
+
+Dynamic Power Grid: Manage your city's energy using Coal, Oil, or sustainable Solar Power. Every connection matters.
+
+Economic Simulation: Balance a starting budget of 10 million coins. Manage debt, interest, and taxes to stay afloat.
+
+Citizen Comfort: Keep your population happy by balancing density, reducing pollution, and providing essential facilities like Hospitals and Schools.
+
+Infinite Gameplay: A tick-based simulation that scales as you grow, with a looming threat of bankruptcy if you overextend.
+
+🛠️ Tech Stack
+
+Framework: React (Vite)
+
+Engine: React Flow (for the node-based gameplay)
+
+State: Zustand (for high-performance game tick updates)
+
+Styling: Tailwind CSS (for that clean, modern "Glassmorphism" look)
+
+Icons: Lucide React
+
+🚦 Getting Started
+
+Clone the repo:
+
+git clone [https://github.com/your-username/nodestopia.git](https://github.com/your-username/nodestopia.git)
 
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+Install dependencies:
+
+npm install
+
+
+Run the simulation:
+
+npm run dev
+
+
+💬 Let’s Connect!
+
+If you’re a fan of simulation games or just like the concept of node-based builders, please appreciate and share this project! As a hobbyist developer, feedback and community interest are what keep these projects moving forward. If you have ideas for new node types or balance tweaks, feel free to open an issue or reach out.
+
+Happy Building!
+— Shyam
