@@ -110,6 +110,12 @@ const CustomNode = ({ id, data, selected }: NodeProps<NodeData>) => {
           </div>
         )}
 
+        {data.warningMessage && (
+          <div className="text-[10px] text-yellow-400 font-bold bg-yellow-900/20 p-2 rounded-lg border border-yellow-900/30 animate-pulse">
+            {data.warningMessage} ({(30 - (data.warningTimer || 0))}s)
+          </div>
+        )}
+
         {type === 'residential' && (
           <div className="flex items-center justify-between text-[10px] pt-1 border-t border-slate-800/50">
             <span className="text-slate-500 uppercase tracking-tighter">City Hall Link</span>

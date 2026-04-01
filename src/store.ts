@@ -557,20 +557,54 @@ export const useGameStore = create<GameState>((set, get) => ({
     let totalLaborProduced = 0;
     let totalLaborRequired = 0;
     newNodes.forEach(node => {
+      const isConnectedToTownHall = townHallConnectedIds.has(node.id);
+      
       if (node.type === 'residential') {
         const food = node.data.inventory['Food'] || 0;
         const goods = node.data.inventory['Processed Goods'] || 0;
         const water = node.data.inventory['Water'] || 0;
+        const waste = node.data.inventory['Waste'] || 0;
+        const wasteCapacity = node.data.capacity['Waste'] || 50;
         
-        // Base satisfaction from basic needs
-        const satisfaction = (
-          (food >= 1 ? 1 : 0) +
-          (goods >= 1 ? 1 : 0) +
-          (water >= 1 ? 1 : 0)
-        ) / 3;
-        
-        // Provide at least 85% labor even if unsatisfied to ensure starting city stability
-        totalLaborProduced += (node.data.laborProduced || 0) * (0.85 + satisfaction * 0.15);
+        // Warning logic for residential
+        let warning = "";
+        const isConnectedToPower = poweredNodeIds.has(node.id);
+        const isConnectedToWater = wateredNodeIds.has(node.id);
+
+        if (!isConnectedToTownHall) {
+          warning = "No City Hall Link!";
+        } else if (!isConnectedToPower) {
+          warning = "No Power Grid Link!";
+        } else if (!isConnectedToWater) {
+          warning = "No Water Grid Link!";
+        } else if (waste >= wasteCapacity) {
+          warning = "Waste Overflow!";
+        }
+
+        if (warning) {
+          node.data.warningMessage = warning;
+          node.data.warningTimer = (node.data.warningTimer || 0) + 1;
+        } else {
+          node.data.warningMessage = undefined;
+          node.data.warningTimer = 0;
+        }
+
+        // Stop if warning persists for 30 ticks
+        const isStopped = (node.data.warningTimer || 0) >= 30;
+
+        if (!isStopped) {
+          // Base satisfaction from basic needs
+          const satisfaction = (
+            (food >= 1 ? 1 : 0) +
+            (goods >= 1 ? 1 : 0) +
+            (water >= 1 ? 1 : 0)
+          ) / 3;
+          
+          // Provide at least 85% labor even if unsatisfied to ensure starting city stability
+          totalLaborProduced += (node.data.laborProduced || 0) * (0.85 + satisfaction * 0.15);
+        } else {
+          node.data.statusMessage = "Abandoned (No Services)";
+        }
       }
       totalLaborRequired += node.data.laborRequired || 0;
     });
@@ -629,16 +663,12 @@ export const useGameStore = create<GameState>((set, get) => ({
         data.hasLabor = false;
       }
 
-      const needsTownHall = node.type === 'residential';
-      const townHallOk = !needsTownHall || isConnectedToTownHall;
+      // Residential stops if warning timer is too high
+      const isStoppedByWarning = node.type === 'residential' && (data.warningTimer || 0) >= 30;
 
-      const needsPower = powerReq > 0;
-      const needsLabor = laborReq > 0;
-      const needsWater = waterReq > 0;
-
-      const powerOk = !needsPower || data.hasPower;
-      const laborOk = !needsLabor || data.hasLabor;
-      const waterOk = !needsWater || data.hasWater;
+      const powerOk = powerReq === 0 || data.hasPower;
+      const laborOk = laborReq === 0 || data.hasLabor;
+      const waterOk = waterReq === 0 || data.hasWater;
 
       // Re-verify inputs for final activation with Hysteresis
       let inputsOk = true;
@@ -647,8 +677,6 @@ export const useGameStore = create<GameState>((set, get) => ({
         Object.entries(data.inputRequirements).forEach(([res, amount]) => {
           if (res !== 'Labor' && res !== 'Power' && res !== 'Water') {
             const current = data.inventory[res as ResourceType] || 0;
-            // Hysteresis: If was active last second, need 1x. If was inactive, need 2x to start.
-            // This prevents rapid on/off cycling when resources are tight.
             const wasActive = state.nodes.find(n => n.id === node.id)?.data.isActive;
             const threshold = wasActive ? amount : amount * 2;
             
@@ -660,15 +688,15 @@ export const useGameStore = create<GameState>((set, get) => ({
         });
       }
 
-      data.isActive = powerOk && laborOk && waterOk && townHallOk && inputsOk && state.money > 0 && !data.isManuallyPaused;
+      data.isActive = powerOk && laborOk && waterOk && inputsOk && state.money > 0 && !data.isManuallyPaused && !isStoppedByWarning;
 
       if (!data.isActive) {
         const reasons = [];
         if (data.isManuallyPaused) reasons.push("Paused");
+        if (isStoppedByWarning) reasons.push("Abandoned");
         if (!powerOk) reasons.push("No Power");
         if (!laborOk) reasons.push("No Labor");
         if (!waterOk) reasons.push("No Water");
-        if (!townHallOk) reasons.push("No City Hall Link");
         if (!inputsOk) reasons.push(`Missing: ${missingInputs.join(", ")}`);
         if (state.money <= 0) reasons.push("City Bankrupt");
         data.statusMessage = reasons.join(", ");
@@ -713,16 +741,27 @@ export const useGameStore = create<GameState>((set, get) => ({
         
         // Revenue from Residential (Taxes)
         if (data.type === 'residential') {
+          const isConnectedToTownHall = townHallConnectedIds.has(node.id);
           const food = data.inventory['Food'] || 0;
           const goods = data.inventory['Processed Goods'] || 0;
           const water = data.inventory['Water'] || 0;
           
-          if (food >= 1 && goods >= 1 && water >= 1) {
+          if (food >= 1 && goods >= 1 && water >= 1 && isConnectedToTownHall) {
             data.inventory['Food']! -= 1;
             data.inventory['Processed Goods']! -= 1;
             data.inventory['Water']! -= 1;
             revenue += 4000 * (state.comfort / 100);
           }
+        }
+
+        // Tax from other nodes if connected to City Hall
+        // Exclude Critical (Power, Facilities) and Resources
+        const isCritical = data.category === 'Power' || data.category === 'Facilities';
+        const isResource = data.category === 'Resource';
+        const isConnectedToTownHall = townHallConnectedIds.has(node.id);
+
+        if (!isCritical && !isResource && data.type !== 'residential' && isConnectedToTownHall) {
+          revenue += 1000; // Base business tax
         }
       }
     });

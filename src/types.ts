@@ -27,6 +27,8 @@ export interface NodeData {
   isSubstation?: boolean;
   resourceDraw?: number;
   isManuallyPaused?: boolean;
+  warningTimer?: number;
+  warningMessage?: string;
 }
 
 export type GameNode = Node<NodeData>;
